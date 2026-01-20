@@ -1,256 +1,350 @@
 import React, { useState, useMemo } from "react";
 
+// --- ESTILOS CSS V4 (UX REFINADA & VISUAL LIMPO) ---
+const styles = `
+  .pd-container {
+    display: flex; flex-direction: column; gap: 16px;
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #0f172a; height: 100%; width: 100%;
+  }
+
+  /* HEADER DE AÇÃO (KPI + EXPORT) - TÍTULO REMOVIDO PARA GANHAR ESPAÇO */
+  .pd-actions-bar {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    background: #fff; padding: 16px 24px; border-radius: 8px;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .pd-kpi-group { display: flex; gap: 24px; }
+  .pd-kpi-item { display: flex; flex-direction: column; align-items: flex-end; }
+  .pd-kpi-val { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1; }
+  .pd-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 4px; }
+  .val-highlight { color: #d97706; } /* Laranja para destacar ação */
+
+  .btn-export {
+    background: #10b981; color: white; border: none; padding: 10px 20px;
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  }
+  .btn-export:hover { background: #059669; transform: translateY(-1px); }
+
+  /* BARRA DE FILTROS OTIMIZADA */
+  .pd-filters-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 16px 24px;
+    display: grid; grid-template-columns: 1fr 1.5fr 2fr auto; gap: 16px; align-items: end;
+  }
+  
+  .pd-input-group { display: flex; flex-direction: column; gap: 6px; }
+  .pd-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569; }
+  
+  .pd-input, .pd-select {
+    width: 100%; padding: 9px 12px; border-radius: 6px; border: 1px solid #cbd5e1;
+    font-size: 13px; outline: none; background: white; color: #334155; transition: border 0.2s;
+  }
+  .pd-input:focus, .pd-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+  /* CHECKBOX OTIMIZADO (GESTALT) */
+  .checkbox-wrapper {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    background: #f8fafc; transition: all 0.2s; height: 38px;
+  }
+  .checkbox-wrapper:hover { background: #f1f5f9; border-color: #cbd5e1; }
+  .checkbox-wrapper input { width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer; }
+  .checkbox-label { font-size: 13px; font-weight: 500; color: #334155; user-select: none; }
+
+  /* TABELA LIMPA */
+  .pd-table-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    flex: 1; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  .pd-table-container { overflow-y: auto; flex: 1; }
+  
+  .pd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pd-table th {
+    background: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 11px;
+    padding: 12px 20px; text-align: left; 
+    position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #e2e8f0;
+  }
+  .pd-table td { padding: 10px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  .pd-table tr { cursor: pointer; transition: background 0.15s; }
+  .pd-table tr:hover { background: #f1f5f9; }
+
+  /* TIPOGRAFIA DA TABELA */
+  .prod-desc { font-weight: 600; color: #1e293b; font-size: 13px; margin-bottom: 2px; }
+  .prod-meta { font-size: 11px; color: #94a3b8; font-weight: 400; display: flex; gap: 8px; }
+  
+  .val-zero { color: #e2e8f0; font-weight: 400; } /* Zeros cinza claro */
+  .val-num { color: #334155; font-weight: 600; }
+  
+  .col-center { text-align: center; }
+  .col-right { text-align: right; }
+
+  /* BADGES DE STATUS */
+  .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; letter-spacing: 0.02em; }
+  .bg-red { background: #fee2e2; color: #991b1b; } /* Ruptura/Crítico */
+  .bg-orange { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; } /* Atenção */
+  .bg-yellow { background: #fefce8; color: #a16207; border: 1px solid #fef08a; } /* Excesso (Dinheiro parado) */
+  .bg-green { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; } /* Saudável */
+
+  .sug-cell { 
+    background: #fffbeb; color: #b45309; font-weight: 800; font-size: 14px; 
+    border-left: 3px solid #f59e0b;
+  }
+
+  /* MODAL */
+  .detail-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .detail-card {
+    background: white; width: 500px; max-width: 95%;
+    border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    overflow: hidden; display: flex; flex-direction: column;
+    animation: fadeIn 0.2s ease-out;
+  }
+  .detail-header { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 20px; }
+  .detail-body { padding: 0; max-height: 60vh; overflow-y: auto; }
+  .lab-row { 
+    display: flex; justify-content: space-between; padding: 14px 24px; 
+    border-bottom: 1px solid #f1f5f9; font-size: 13px; 
+  }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+`;
+
 export default function PurchaseDashboard({ prodMap, matrizMap, labSnapMap, movRows }) {
-  // --- ESTADOS DE CONTROLE (O "Painel de Comando") ---
-  const [targetMonths, setTargetMonths] = useState(3); // Meta padrão: 3 meses
+  const [targetMonths, setTargetMonths] = useState(3);
   const [selectedCategory, setSelectedCategory] = useState("Todas");
   const [searchTerm, setSearchTerm] = useState("");
-  const [hideOk, setHideOk] = useState(false); // Esconder o que não precisa comprar
+  const [hideOk, setHideOk] = useState(false);
+  const [detailSku, setDetailSku] = useState(null);
 
-  // --- 1. PREPARAR DADOS DE CONSUMO (GIRO) ---
+  // --- DADOS (Mesma lógica) ---
   const stats = useMemo(() => {
-    // Descobre quantos meses de dados temos para fazer a média correta
     const uniqueMonths = new Set(movRows.map(r => r.Mes).filter(Boolean));
-    const numMonths = uniqueMonths.size || 1; // Evita divisão por zero
-
-    // Agrupa consumo por SKU (Soma de todos os labs)
+    const numMonths = uniqueMonths.size || 1; 
     const consumptionBySku = new Map();
     movRows.forEach(row => {
       const sku = String(row.SKU);
-      const qtd = (row.Vendas || 0) + (row.OutrasSaidas || 0); // Venda + Uso Interno/Garantia
-      
+      const qtd = (row.Vendas || 0) + (row.OutrasSaidas || 0); 
       if (!consumptionBySku.has(sku)) consumptionBySku.set(sku, 0);
       consumptionBySku.set(sku, consumptionBySku.get(sku) + qtd);
     });
-
     return { consumptionBySku, numMonths };
   }, [movRows]);
 
-  // --- 2. CÁLCULO MESTRE DE SUGESTÃO DE COMPRA ---
   const rows = useMemo(() => {
     const data = [];
     const categories = new Set();
-
     prodMap.forEach((prod, sku) => {
       categories.add(prod.categoria);
-
-      // Filtros
       if (selectedCategory !== "Todas" && prod.categoria !== selectedCategory) return;
       if (searchTerm && !prod.descricao.toLowerCase().includes(searchTerm.toLowerCase()) && !sku.includes(searchTerm)) return;
 
-      // A. Dados Básicos
       const totalConsumoPeriodo = stats.consumptionBySku.get(sku) || 0;
-      const giroMensal = totalConsumoPeriodo / stats.numMonths; // Média mensal da rede
-
-      // B. Estoque Global (Onde o produto está?)
+      const giroMensal = totalConsumoPeriodo / stats.numMonths;
       const estMatriz = matrizMap.get(sku) || 0;
       
-      // Soma estoque de todos os laboratórios para este SKU
+      const breakdown = [];
       let estLabs = 0;
-      // Precisamos varrer o labSnapMap. Como a chave é "Lab__SKU", iteramos tudo (pode ser otimizado, mas para 5k itens é ok)
-      // Uma forma mais rápida seria ter pré-processado isso, mas vamos iterar o map de labs
-      // Nota: Para performance ideal em grandes bases, o 'engine' deveria entregar isso pronto. 
-      // Aqui faremos um reduce rápido nas chaves que contém o SKU.
-      // *Otimização*: Como não temos o map reverso aqui fácil, vamos assumir que o 'estMatriz' é o principal
-      // e o estLabs vamos pegar aproximado ou iterar se for crítico.
-      // DADO O CONTEXTO: Vamos iterar as chaves do labSnapMap que terminam com o SKU.
       for (const [key, qtd] of labSnapMap.entries()) {
         if (key.endsWith(`__${sku}`)) {
           estLabs += qtd;
+          const labName = key.split('__')[0];
+          if (qtd > 0) breakdown.push({ lab: labName, qtd });
         }
       }
-
-      const estRede = estMatriz + estLabs;
-
-      // C. A Fórmula Mágica
-      // Cobertura = Quantos meses meu estoque atual dura?
-      const coberturaMeses = giroMensal > 0 ? (estRede / giroMensal) : (estRede > 0 ? 999 : 0);
       
-      // Sugestão = (Giro * Meta) - O que eu já tenho
+      const estRede = estMatriz + estLabs;
+      const coberturaMeses = giroMensal > 0 ? (estRede / giroMensal) : (estRede > 0 ? 999 : 0);
       const metaEstoque = giroMensal * targetMonths;
       let sugestao = metaEstoque - estRede;
-      
-      // Regras de arredondamento e mínimo
       if (sugestao < 0) sugestao = 0;
       sugestao = Math.ceil(sugestao);
 
-      // Status do Farol
-      let status = "🟢 Saudável";
-      let statusColor = "text-green-600 bg-green-100";
+      // Status Lógica V4
+      let statusLabel = "Saudável"; let statusClass = "bg-green";
       
-      if (estRede === 0 && giroMensal > 0) {
-        status = "🔴 RUPTURA";
-        statusColor = "text-white bg-red-600 font-bold";
-      } else if (coberturaMeses < 1 && giroMensal > 0) {
-        status = "🔴 Crítico (<1m)";
-        statusColor = "text-red-600 bg-red-100 font-bold";
-      } else if (coberturaMeses < targetMonths * 0.5) {
-        status = "🟡 Atenção";
-        statusColor = "text-orange-600 bg-orange-100";
-      } else if (coberturaMeses > targetMonths * 2 && estRede > 10) {
-        status = "🔵 Excesso";
-        statusColor = "text-blue-600 bg-blue-100";
+      if (estRede === 0 && giroMensal > 0) { 
+        statusLabel = "RUPTURA"; statusClass = "bg-red"; 
+      } else if (coberturaMeses < 1 && giroMensal > 0) { 
+        statusLabel = "Crítico"; statusClass = "bg-red"; 
+      } else if (coberturaMeses < targetMonths * 0.5) { 
+        statusLabel = "Atenção"; statusClass = "bg-orange"; 
+      } else if (coberturaMeses > targetMonths * 2 && estRede > 10) { 
+        // Excesso agora é amarelo/ouro (Dinheiro parado)
+        statusLabel = "Excesso"; statusClass = "bg-yellow"; 
       }
 
-      // Filtro de "Esconder OK"
       if (hideOk && sugestao <= 0) return;
 
       data.push({
-        sku,
-        descricao: prod.descricao,
-        categoria: prod.categoria,
-        giroMensal,
-        estMatriz,
-        estLabs,
-        estRede,
-        coberturaMeses,
-        sugestao,
-        status,
-        statusColor
+        sku, descricao: prod.descricao, categoria: prod.categoria,
+        giroMensal, estMatriz, estLabs, estRede, coberturaMeses, sugestao,
+        statusLabel, statusClass, breakdown
       });
     });
-
-    // Ordenação Inteligente: Primeiro os que precisam comprar mais (Sugestão Descendente), depois por Giro
     return { 
       data: data.sort((a, b) => b.sugestao - a.sugestao || b.giroMensal - a.giroMensal), 
       categories: Array.from(categories).sort() 
     };
   }, [prodMap, matrizMap, labSnapMap, stats, targetMonths, selectedCategory, searchTerm, hideOk]);
 
-  // Formata números
   const fmt = (n) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n);
+  
+  // Renderiza número ou traço se for zero
+  const renderNum = (n) => n === 0 ? <span className="val-zero">-</span> : <span className="val-num">{n}</span>;
+
+  const handleExport = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "SKU;Produto;Categoria;Giro Mensal;Estoque Matriz;Estoque Filiais;Total Rede;Cobertura (Meses);Sugestao Compra;Status\n";
+    rows.data.forEach(r => {
+      const line = `${r.sku};"${r.descricao}";${r.categoria};${fmt(r.giroMensal)};${r.estMatriz};${r.estLabs};${r.estRede};${fmt(r.coberturaMeses)};${r.sugestao};${r.statusLabel}`;
+      csvContent += line + "\n";
+    });
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", "sugestao_compra.csv");
+    document.body.appendChild(link);
+    link.click();
+  };
+
+  const selectedItem = detailSku ? rows.data.find(r => r.sku === detailSku) : null;
 
   return (
-    <div className="flex flex-col gap-6 animate-fadeIn">
-      
-      {/* --- PAINEL DE CONTROLE (O CÉREBRO) --- */}
-      <div className="card p-5 bg-white shadow-sm border border-gray-200">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Gestão de Compras & Reposição (Matriz)</h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Planejamento baseado na <strong>Demanda Agregada</strong> (Consumo de toda a rede) vs <strong>Estoque Global</strong>.
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-blue-600">{rows.data.filter(r => r.sugestao > 0).length}</div>
-            <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Itens para Comprar</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          {/* Input de Cobertura */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Meta de Cobertura (Meses)</label>
-            <div className="flex items-center gap-2">
-              <input 
-                type="number" 
-                value={targetMonths} 
-                onChange={(e) => setTargetMonths(Number(e.target.value))}
-                className="w-full p-2 border border-gray-300 rounded font-bold text-blue-700"
-                min="0.5" step="0.5"
-              />
-              <span className="text-xs text-slate-400 whitespace-nowrap">ex: 4 p/ China</span>
+    <>
+      <style>{styles}</style>
+      <div className="pd-container">
+        
+        {/* BARRA DE AÇÃO SUPERIOR */}
+        <div className="pd-actions-bar">
+          <div className="pd-kpi-group">
+            <div className="pd-kpi-item">
+              <div className="pd-kpi-val val-highlight">{rows.data.filter(r => r.sugestao > 0).length}</div>
+              <div className="pd-kpi-label">Itens p/ Pedir</div>
+            </div>
+            <div className="pd-kpi-item">
+               {/* KPI Secundário opcional, ex: Rupturas */}
+              <div className="pd-kpi-val" style={{color:'#ef4444'}}>{rows.data.filter(r => r.estRede === 0 && r.giroMensal > 0).length}</div>
+              <div className="pd-kpi-label">Rupturas (Zerados)</div>
             </div>
           </div>
+          <button className="btn-export" onClick={handleExport}>
+             Exportar Planilha de Compra
+          </button>
+        </div>
 
-          {/* Filtro Categoria */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoria</label>
-            <select 
-              value={selectedCategory} 
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            >
+        {/* FILTROS E CONTROLES */}
+        <div className="pd-filters-card">
+          <div className="pd-input-group">
+            <label className="pd-label">Meta Cobertura (Meses)</label>
+            <input type="number" className="pd-input" value={targetMonths} onChange={e=>setTargetMonths(Number(e.target.value))} step="0.5" />
+          </div>
+          <div className="pd-input-group">
+            <label className="pd-label">Categoria</label>
+            <select className="pd-select" value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)}>
               <option value="Todas">Todas as Categorias</option>
-              {rows.categories.map(c => <option key={c} value={c}>{c}</option>)}
+              {rows.categories.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-
-          {/* Busca Texto */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Buscar Produto</label>
-            <input 
-              type="text" 
-              placeholder="SKU ou Nome..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            />
+          <div className="pd-input-group">
+            <label className="pd-label">Buscar Produto</label>
+            <input type="text" className="pd-input" placeholder="Digite SKU ou Modelo..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
           </div>
-
-          {/* Toggle Limpar */}
-          <div className="pb-2">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                checked={hideOk} 
-                onChange={(e) => setHideOk(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded" 
-              />
-              <span className="text-sm text-slate-700">Mostrar apenas sugestões de compra</span>
-            </label>
-          </div>
+          
+          {/* CHECKBOX CORRIGIDO (GESTALT) */}
+          <label className="checkbox-wrapper">
+            <input type="checkbox" checked={hideOk} onChange={e=>setHideOk(e.target.checked)} />
+            <span className="checkbox-label">Esconder itens sem compra</span>
+          </label>
         </div>
-      </div>
 
-      {/* --- TABELA DE RESULTADOS --- */}
-      <div className="card overflow-hidden border border-gray-200 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs">
-              <tr>
-                <th className="p-3 border-b">SKU / Produto</th>
-                <th className="p-3 border-b text-center">Giro Mensal<br/><span className="text-[9px] font-normal text-slate-400">(Média Rede)</span></th>
-                <th className="p-3 border-b text-center bg-blue-50/50">Estoque<br/>Matriz</th>
-                <th className="p-3 border-b text-center">Estoque<br/>Filiais</th>
-                <th className="p-3 border-b text-center font-bold">Total<br/>Rede</th>
-                <th className="p-3 border-b text-center">Cobertura<br/><span className="text-[9px] font-normal text-slate-400">(Meses)</span></th>
-                <th className="p-3 border-b text-center">Status</th>
-                <th className="p-3 border-b text-right bg-yellow-50 text-yellow-800 border-l-4 border-l-yellow-400 w-32">SUGESTÃO<br/>COMPRA</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.data.slice(0, 500).map((row) => (
-                <tr key={row.sku} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-3 max-w-xs">
-                    <div className="font-bold text-slate-700">{row.descricao}</div>
-                    <div className="flex gap-2 text-xs mt-1">
-                      <span className="font-mono bg-slate-100 px-1 rounded text-slate-500">{row.sku}</span>
-                      <span className="text-slate-400">{row.categoria}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 text-center text-slate-600">{fmt(row.giroMensal)}</td>
-                  <td className="p-3 text-center font-semibold text-blue-700 bg-blue-50/30">{row.estMatriz}</td>
-                  <td className="p-3 text-center text-slate-500">{row.estLabs}</td>
-                  <td className="p-3 text-center font-bold text-slate-800">{row.estRede}</td>
-                  <td className="p-3 text-center">
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${row.coberturaMeses < 1 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {fmt(row.coberturaMeses)} m
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    <span className={`px-2 py-1 rounded text-xs inline-block w-full ${row.statusColor}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right bg-yellow-50 font-bold text-lg text-yellow-900 border-l-4 border-l-transparent">
-                    {row.sugestao > 0 ? row.sugestao : "-"}
-                  </td>
-                </tr>
-              ))}
-              {rows.data.length === 0 && (
+        {/* TABELA */}
+        <div className="pd-table-card">
+          <div className="pd-table-container">
+            <table className="pd-table">
+              <thead>
                 <tr>
-                  <td colSpan="8" className="p-8 text-center text-slate-400">Nenhum produto encontrado com os filtros atuais.</td>
+                  <th style={{width:'35%'}}>Produto</th>
+                  <th className="col-center">Giro (Mês)</th>
+                  <th className="col-center">Matriz</th>
+                  <th className="col-center">Filiais</th>
+                  <th className="col-center">Total Rede</th>
+                  <th className="col-center">Cob. (Meses)</th>
+                  <th className="col-center">Status</th>
+                  <th className="col-right">Sugestão</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.data.slice(0, 500).map(row => (
+                  <tr key={row.sku} onClick={() => setDetailSku(row.sku)} title="Clique para ver detalhes">
+                    <td>
+                      <div className="prod-desc">{row.descricao}</div>
+                      <div className="prod-meta">
+                        <span>SKU: {row.sku}</span>
+                        <span>•</span>
+                        <span>{row.categoria}</span>
+                      </div>
+                    </td>
+                    <td className="col-center">{fmt(row.giroMensal)}</td>
+                    <td className="col-center">{renderNum(row.estMatriz)}</td>
+                    <td className="col-center">{renderNum(row.estLabs)}</td>
+                    <td className="col-center" style={{fontWeight:700}}>{renderNum(row.estRede)}</td>
+                    <td className="col-center">{fmt(row.coberturaMeses)}</td>
+                    <td className="col-center"><span className={`badge ${row.statusClass}`}>{row.statusLabel}</span></td>
+                    <td className={`col-right ${row.sugestao > 0 ? 'sug-cell' : ''}`}>
+                      {row.sugestao > 0 ? row.sugestao : '-'}
+                    </td>
+                  </tr>
+                ))}
+                {rows.data.length === 0 && <tr><td colSpan="8" style={{textAlign:'center', padding:'40px', color:'#94a3b8'}}>Nenhum resultado para os filtros.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div style={{padding:'10px', background:'#f8fafc', borderTop:'1px solid #e2e8f0', fontSize:'11px', color:'#64748b', textAlign:'center'}}>
+            Mostrando os top 500 itens. Use os filtros para refinar.
+          </div>
         </div>
-        <div className="p-3 bg-slate-50 text-xs text-center text-slate-400 border-t border-gray-200">
-          Mostrando os top 500 itens prioritários
-        </div>
+
       </div>
-    </div>
+
+      {/* MODAL DETALHES */}
+      {selectedItem && (
+        <div className="detail-overlay" onClick={() => setDetailSku(null)}>
+          <div className="detail-card" onClick={e => e.stopPropagation()}>
+            <div className="detail-header">
+              <h3 style={{margin:0, fontSize:'16px', color:'#1e293b'}}>{selectedItem.descricao}</h3>
+              <div style={{fontSize:'12px', color:'#64748b', marginTop:'4px'}}>Estoque Total na Rede: <strong>{selectedItem.estRede}</strong></div>
+            </div>
+            <div className="detail-body">
+              <div className="lab-row" style={{background:'#f1f5f9'}}>
+                <span className="lab-name">🏢 Matriz (Central)</span>
+                <span className="lab-qty">{selectedItem.estMatriz}</span>
+              </div>
+              {selectedItem.breakdown.sort((a,b) => b.qtd - a.qtd).map((item, idx) => (
+                <div key={idx} className="lab-row">
+                  <span className="lab-name">{item.lab}</span>
+                  <span className="lab-qty">{item.qtd}</span>
+                </div>
+              ))}
+              {selectedItem.breakdown.length === 0 && selectedItem.estMatriz === 0 && (
+                <div style={{padding:'30px', textAlign:'center', color:'#cbd5e1'}}>Estoque zerado.</div>
+              )}
+            </div>
+            <button 
+              onClick={() => setDetailSku(null)}
+              style={{padding:'16px', background:'white', border:'none', borderTop:'1px solid #e2e8f0', cursor:'pointer', fontWeight:600, color:'#475569'}}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
